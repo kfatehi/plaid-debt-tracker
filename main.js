@@ -59,6 +59,9 @@ async function getDebt() {
     startDate: new Date(data.startDate),
     repayments: data.repayments ? data.repayments.map(r=>({
       ...r, date: new Date(r.date)
+    })) : [],
+    adjustments: data.adjustments ? data.adjustments.map(r=>({
+      ...r, date: new Date(r.date)
     })) : []
   };
 }
@@ -69,7 +72,6 @@ async function applyTransaction(debt, transaction) {
     amount: transaction.amount,
     balance: getBalance(debt) + transaction.amount
   })
-  console.log("writing ", debt.filename, debt)
   await fs.writeFile(debt.filename, JSON.stringify(debt, null, 4));
   return debt;
 }
@@ -81,19 +83,19 @@ function getDate(debt) {
 
 function getBalance(debt) {
   let rp = debt.repayments[debt.repayments.length-1]
-  return rp ? rp.balance : debt.startBalance;
+  return (rp ? rp.balance : debt.startBalance) + debt.adjustments.reduce((acc,i)=>acc+i.amount,0);
 }
 
 async function main() {
   let debt = await getDebt();
-  console.log(debt);
   let tx = await getTransactions();
   for (let transaction of tx.transactions.reverse()) {
     if (!debt.matches(transaction.name)) continue;
     if (new Date(transaction.date) > getDate(debt)) {
       debt = await applyTransaction(debt, transaction);
     }
-  }      
+  }
+  console.log(getBalance(debt));
 }
 
 main();
